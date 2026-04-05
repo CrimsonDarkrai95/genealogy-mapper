@@ -17,7 +17,11 @@ from backend.routers import nl_query
 async def lifespan(app: FastAPI):
     # Startup
     app.state.db_pool = await init_pool()
-    app.state.redis = await init_redis()
+    try:
+        app.state.redis = await init_redis()
+    except Exception as e:
+        print(f"WARNING: Redis unavailable at startup: {e}")
+        app.state.redis = None
     yield
     # Shutdown
     await close_pool()
