@@ -20,14 +20,15 @@ async def init_redis() -> redis.Redis:
             raise RuntimeError("REDIS_URL is not set in .env")
 
         _pool = redis.from_url(
-            REDIS_URL,
-            encoding="utf-8",
-            decode_responses=True,
-            max_connections=10,
-            socket_connect_timeout=5,
-            socket_timeout=5,
-            retry_on_timeout=True,
-        )
+    REDIS_URL,
+    encoding="utf-8",
+    decode_responses=True,
+    max_connections=10,
+    socket_connect_timeout=5,
+    socket_timeout=5,
+    retry_on_timeout=True,
+    ssl_cert_reqs=None,
+)
 
         # Test connection
         await _pool.ping()
