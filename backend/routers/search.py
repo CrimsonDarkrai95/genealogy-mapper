@@ -11,7 +11,6 @@ router = APIRouter()
 def _str(val) -> str | None:
     return str(val) if val is not None else None
 
-
 @router.get("/search", response_model=SearchOut)
 async def search(
     request: Request,
@@ -29,49 +28,97 @@ async def search(
 
     pool = get_pool()
     async with pool.acquire() as conn:
+
+        # Try FTS first
         rows = await conn.fetch(
-    """
-    SELECT result_type, id, label, rank_score, snippet
-    FROM (
-        SELECT
-            'person' AS result_type,
-            person_id::text AS id,
-            full_name AS label,
-            ts_rank(bio_tsv, plainto_tsquery('english', $1)) AS rank_score,
-            left(bio_text, 200) AS snippet
-        FROM person
-        WHERE bio_tsv @@ plainto_tsquery('english', $1)
-          AND ($2::text IS NULL OR $2 = 'person')
+            """
+            SELECT result_type, id, label, rank_score, snippet
+            FROM (
+                SELECT
+                    'person' AS result_type,
+                    person_id::text AS id,
+                    full_name AS label,
+                    ts_rank(bio_tsv, plainto_tsquery('english', $1)) AS rank_score,
+                    left(bio_text, 200) AS snippet
+                FROM person
+                WHERE bio_tsv @@ plainto_tsquery('english', $1)
+                  AND ($2::text IS NULL OR $2 = 'person')
 
-        UNION ALL
+                UNION ALL
 
-        SELECT
-            'dataset' AS result_type,
-            dataset_id::text AS id,
-            dataset_name AS label,
-            ts_rank(description_tsv, plainto_tsquery('english', $1)) AS rank_score,
-            left(description, 200) AS snippet
-        FROM dataset_source
-        WHERE description_tsv @@ plainto_tsquery('english', $1)
-          AND ($2::text IS NULL OR $2 = 'dataset')
+                SELECT
+                    'dataset' AS result_type,
+                    dataset_id::text AS id,
+                    dataset_name AS label,
+                    ts_rank(description_tsv, plainto_tsquery('english', $1)) AS rank_score,
+                    left(description, 200) AS snippet
+                FROM dataset_source
+                WHERE description_tsv @@ plainto_tsquery('english', $1)
+                  AND ($2::text IS NULL OR $2 = 'dataset')
 
-        UNION ALL
+                UNION ALL
 
-        SELECT
-            'dynasty' AS result_type,
-            dynasty_id::text AS id,
-            dynasty_name AS label,
-            ts_rank(description_tsv, plainto_tsquery('english', $1)) AS rank_score,
-            left(description, 200) AS snippet
-        FROM dynasty
-        WHERE description_tsv @@ plainto_tsquery('english', $1)
-          AND ($2::text IS NULL OR $2 = 'dynasty')
-    ) combined
-    ORDER BY rank_score DESC
-    LIMIT 30
-    """,
-    q, type,
-)
+                SELECT
+                    'dynasty' AS result_type,
+                    dynasty_id::text AS id,
+                    dynasty_name AS label,
+                    ts_rank(description_tsv, plainto_tsquery('english', $1)) AS rank_score,
+                    left(description, 200) AS snippet
+                FROM dynasty
+                WHERE description_tsv @@ plainto_tsquery('english', $1)
+                  AND ($2::text IS NULL OR $2 = 'dynasty')
+            ) combined
+            ORDER BY rank_score DESC
+            LIMIT 30
+            """,
+            q, type,
+        )
+
+        # FTS returned nothing — fall back to ILIKE on name columns
+        if not rows:
+            like_q = f"%{q}%"
+            rows = await conn.fetch(
+                """
+                SELECT result_type, id, label,
+                       0.0::float AS rank_score,
+                       snippet
+                FROM (
+                    SELECT
+                        'person' AS result_type,
+                        person_id::text AS id,
+                        full_name AS label,
+                        left(bio_text, 200) AS snippet
+                    FROM person
+                    WHERE full_name ILIKE $1
+                      AND ($2::text IS NULL OR $2 = 'person')
+
+                    UNION ALL
+
+                    SELECT
+                        'dataset' AS result_type,
+                        dataset_id::text AS id,
+                        dataset_name AS label,
+                        left(description, 200) AS snippet
+                    FROM dataset_source
+                    WHERE dataset_name ILIKE $1
+                      AND ($2::text IS NULL OR $2 = 'dataset')
+
+                    UNION ALL
+
+                    SELECT
+                        'dynasty' AS result_type,
+                        dynasty_id::text AS id,
+                        dynasty_name AS label,
+                        left(description, 200) AS snippet
+                    FROM dynasty
+                    WHERE dynasty_name ILIKE $1
+                      AND ($2::text IS NULL OR $2 = 'dynasty')
+                ) combined
+                ORDER BY label
+                LIMIT 30
+                """,
+                like_q, type,
+            )
 
     results = [
         SearchResultOut(
