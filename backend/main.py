@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from backend.db.pool import init_pool, close_pool
 from backend.cache.client import init_redis, close_redis
 from backend.routers import person
@@ -15,7 +16,6 @@ from backend.routers import nl_query
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
     app.state.db_pool = await init_pool()
     try:
         app.state.redis = await init_redis()
@@ -23,7 +23,6 @@ async def lifespan(app: FastAPI):
         print(f"WARNING: Redis unavailable at startup: {e}")
         app.state.redis = None
     yield
-    # Shutdown
     await close_pool()
     await close_redis()
 
@@ -33,6 +32,14 @@ app = FastAPI(
     version="1.0.0",
     description="Probabilistic genetic ancestry inference between modern individuals and historical figures.",
     lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(person.router, prefix="/person", tags=["Person"])

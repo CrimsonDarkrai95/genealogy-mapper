@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Genetic Ancestry Mapper</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --bg2: #0f0f1a;
+    --bg3: #141420;
+    --border: #2a2a3f;
+    --border2: #3a3a5f;
+    --gold: #c9a84c;
+    --gold2: #e8c97a;
+    --gold-dim: rgba(201,168,76,0.12);
+    --gold-glow: rgba(201,168,76,0.25);
+    --text: #e8e4d8;
+    --text-dim: #8a8672;
+    --text-muted: #4a4a5f;
+    --green: #4caf7d;
+    --red: #c94c4c;
+    --blue: #4c7ac9;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+    --serif: 'Cinzel', serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Subtle grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.3;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrap { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+
+  /* ── HEADER ── */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 28px 0 24px;
+    background: linear-gradient(180deg, rgba(201,168,76,0.04) 0%, transparent 100%);
+  }
+
+  .header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .header-left h1 {
+    font-family: var(--serif);
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--gold2);
+    letter-spacing: 0.04em;
+    line-height: 1.3;
+  }
+
+  .header-left p {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.08em;
+    margin-top: 4px;
+    text-transform: uppercase;
+  }
+
+  .status-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    padding: 6px 12px;
+    border-radius: 3px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    flex-shrink: 0;
+    transition: background 0.4s;
+  }
+  .status-dot.ok { background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse 2s infinite; }
+  .status-dot.err { background: var(--red); }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  /* ── TABS ── */
+  .tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    margin-top: 0;
+  }
+
+  .tab-btn {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 14px 28px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: all 0.2s;
+  }
+
+  .tab-btn:hover { color: var(--text-dim); }
+  .tab-btn.active {
+    color: var(--gold);
+    border-bottom-color: var(--gold);
+    background: var(--gold-dim);
+  }
+
+  /* ── MAIN LAYOUT ── */
+  main { padding: 28px 0 60px; }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ── FORM ELEMENTS ── */
+  label {
+    display: block;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  input, select, textarea {
+    width: 100%;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 10px 12px;
+    border-radius: 3px;
+    outline: none;
+    transition: border-color 0.2s;
+    appearance: none;
+  }
+
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 2px var(--gold-dim);
+  }
+
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238a8672' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+    cursor: pointer;
+  }
+
+  textarea { resize: vertical; min-height: 80px; }
+
+  .field { margin-bottom: 16px; }
+
+  .field-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 16px; }
+
+  .btn {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 11px 24px;
+    border: 1px solid var(--gold);
+    background: var(--gold-dim);
+    color: var(--gold);
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn:hover {
+    background: var(--gold-glow);
+    box-shadow: 0 0 12px var(--gold-dim);
+  }
+
+  .btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .btn-sm {
+    font-size: 11px;
+    padding: 6px 14px;
+    border-color: var(--border2);
+    background: transparent;
+    color: var(--text-dim);
+  }
+
+  .btn-sm:hover { border-color: var(--text-dim); color: var(--text); background: transparent; box-shadow: none; }
+
+  /* ── STRUCTURED PANEL ── */
+  .query-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+
+  .card-title {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  #dynamic-fields { min-height: 20px; }
+
+  /* ── NL PANEL ── */
+  .examples-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .example-chip {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    padding: 6px 12px;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 0.15s;
+    line-height: 1.4;
+  }
+
+  .example-chip:hover {
+    border-color: var(--gold);
+    color: var(--gold);
+    background: var(--gold-dim);
+  }
+
+  .sql-display {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--gold);
+    padding: 14px 16px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--gold2);
+    border-radius: 0 3px 3px 0;
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin-top: 12px;
+    display: none;
+  }
+
+  .cache-badge {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    padding: 3px 8px;
+    border-radius: 2px;
+    margin-top: 8px;
+  }
+
+  .cache-badge.hit { background: rgba(76,175,125,0.15); color: var(--green); border: 1px solid rgba(76,175,125,0.3); }
+  .cache-badge.miss { background: rgba(76,122,201,0.15); color: var(--blue); border: 1px solid rgba(76,122,201,0.3); }
+
+  /* ── RESULTS ── */
+  .results-section {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 8px;
+  }
+
+  .results-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg3);
+  }
+
+  .results-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .results-count {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--gold);
+    margin-left: 10px;
+  }
+
+  .results-actions { display: flex; gap: 8px; align-items: center; }
+
+  .view-toggle {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .view-toggle button {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 5px 10px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .view-toggle button.active { background: var(--gold-dim); color: var(--gold); }
+
+  /* Table */
+  .table-wrap { overflow-x: auto; max-height: 420px; overflow-y: auto; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  thead { position: sticky; top: 0; z-index: 2; }
+
+  th {
+    background: var(--bg3);
+    color: var(--text-dim);
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-size: 10px;
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  th:hover { color: var(--gold); }
+
+  td {
+    padding: 9px 14px;
+    border-bottom: 1px solid rgba(42,42,63,0.5);
+    color: var(--text);
+    max-width: 280px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: middle;
+  }
+
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(201,168,76,0.04); }
+
+  td.bool-true { color: var(--green); }
+  td.bool-false { color: var(--text-muted); }
+  td.null-val { color: var(--text-muted); font-style: italic; }
+  td.num-val { color: var(--blue); }
+
+  /* JSON view */
+  .json-view {
+    padding: 16px 20px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 420px;
+    overflow-y: auto;
+    display: none;
+    line-height: 1.7;
+  }
+
+  /* Empty / loading states */
+  .state-box {
+    padding: 48px 24px;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-muted);
+    letter-spacing: 0.04em;
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 16px; height: 16px;
+    border: 2px solid var(--border);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin-right: 10px;
+    vertical-align: middle;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .error-box {
+    padding: 16px 20px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--red);
+    background: rgba(201,76,76,0.08);
+    border-left: 3px solid var(--red);
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 20px 0;
+    margin-top: 40px;
+  }
+
+  .footer-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .footer-stat {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+
+  .footer-stat span { color: var(--text-dim); }
+
+  .footer-url {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+  .divider { height: 1px; background: var(--border); margin: 20px 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="header-inner">
+      <div class="header-left">
+        <h1>Historical Figure Genetic Genealogy &amp; Ancestry Mapper</h1>
+        <p>Probabilistic ancestry inference across time &mdash; PostgreSQL · Redis · FastAPI</p>
+      </div>
+      <div class="status-badge">
+        <div class="status-dot" id="status-dot"></div>
+        <span id="status-text">checking...</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('structured')">Structured Query</button>
+    <button class="tab-btn" onclick="switchTab('nl')">Natural Language Query</button>
+  </div>
+</div>
+
+<main>
+  <div class="wrap">
+
+    <!-- ── STRUCTURED TAB ── -->
+    <div class="tab-panel active" id="tab-structured">
+      <div class="query-card">
+        <div class="card-title">Select API Route</div>
+
+        <div class="field">
+          <label>Route</label>
+          <select id="route-select" onchange="renderFields()">
+            <option value="">— choose a route —</option>
+            <optgroup label="Search">
+              <option value="search">Search People / Datasets — GET /search</option>
+            </optgroup>
+            <optgroup label="Person">
+              <option value="person">Person Profile — GET /person/{id}</option>
+              <option value="person-genome">Person Genome — GET /person/{id}/genome</option>
+              <option value="person-matches">Genome Matches — GET /person/{id}/matches</option>
+              <option value="person-ancestry">Ancestry Chain — GET /person/{id}/ancestry</option>
+              <option value="person-lineage">Dynasty Lineage — GET /person/{id}/lineage</option>
+            </optgroup>
+            <optgroup label="Match &amp; Relationship">
+              <option value="match">Match Detail — GET /match/{id}</option>
+              <option value="relationship">Relationship Detail — GET /relationship/{id}</option>
+            </optgroup>
+            <optgroup label="Genomic">
+              <option value="haplogroup">Haplogroup Members — GET /haplogroup/{code}/members</option>
+              <option value="cluster">Population Cluster — GET /cluster/{id}</option>
+            </optgroup>
+            <optgroup label="Historical">
+              <option value="historical">Historical Figures — GET /historical</option>
+              <option value="timeline">Person Timeline — GET /timeline</option>
+            </optgroup>
+            <optgroup label="System">
+              <option value="health">System Health — GET /health</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <div id="dynamic-fields"></div>
+
+        <button class="btn" id="run-structured" onclick="runStructured()" disabled>
+          <span id="structured-btn-text">Run Query</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── NL TAB ── -->
+    <div class="tab-panel" id="tab-nl">
+      <div class="query-card">
+        <div class="card-title">Natural Language Query &mdash; Powered by Gemini Flash → SQL</div>
+
+        <div class="field">
+          <label>Your Question</label>
+          <textarea id="nl-input" rows="3" placeholder="Which people share a haplogroup with Genghis Khan?"></textarea>
+        </div>
+
+        <div class="field">
+          <label>API Key <span style="color:var(--text-muted);font-size:10px;text-transform:none;letter-spacing:0">(any string — used for rate limiting)</span></label>
+          <input type="text" id="nl-apikey" placeholder="demo-key" value="demo-key" style="max-width:260px">
+        </div>
+
+        <div class="field">
+          <label>Example Queries</label>
+          <div class="examples-grid">
+            <div class="example-chip" onclick="fillNL(this)">Show all historical figures born before 500 BC</div>
+            <div class="example-chip" onclick="fillNL(this)">Which genomes have the highest similarity score?</div>
+            <div class="example-chip" onclick="fillNL(this)">List all dynasties and their origin regions</div>
+            <div class="example-chip" onclick="fillNL(this)">Find people with Y-DNA haplogroup R1b</div>
+            <div class="example-chip" onclick="fillNL(this)">What datasets were used to populate the database?</div>
+            <div class="example-chip" onclick="fillNL(this)">Show the top 10 genome matches by similarity score</div>
+            <div class="example-chip" onclick="fillNL(this)">How many historical figures are in each region?</div>
+            <div class="example-chip" onclick="fillNL(this)">List all persons who died after 1800 AD</div>
+          </div>
+        </div>
+
+        <button class="btn" onclick="runNL()">
+          <span id="nl-btn-text">Run NL Query</span>
+        </button>
+
+        <div id="sql-display" class="sql-display"></div>
+        <div id="cache-badge"></div>
+      </div>
+    </div>
+
+    <!-- ── RESULTS ── -->
+    <div class="results-section">
+      <div class="results-header">
+        <div style="display:flex;align-items:center;gap:4px">
+          <span class="results-title">Results</span>
+          <span class="results-count" id="results-count"></span>
+        </div>
+        <div class="results-actions">
+          <div class="view-toggle">
+            <button class="active" id="view-table-btn" onclick="setView('table')">Table</button>
+            <button id="view-json-btn" onclick="setView('json')">JSON</button>
+          </div>
+          <button class="btn btn-sm" onclick="copyJSON()">Copy JSON</button>
+          <button class="btn btn-sm" onclick="clearResults()">Clear</button>
+        </div>
+      </div>
+
+      <div id="table-view" class="table-wrap">
+        <div class="state-box">Run a query to see results</div>
+      </div>
+      <div id="json-view" class="json-view"></div>
+      <div id="error-view" class="error-box" style="display:none"></div>
+    </div>
+
+  </div><!-- /wrap -->
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="footer-inner">
+      <div class="footer-stat">
+        <div>Database <span>PostgreSQL 15 — Supabase</span></div>
+        <div>Cache <span>Redis Cloud</span></div>
+        <div>Tables <span>17</span></div>
+        <div>Rows <span>~32,000</span></div>
+      </div>
+      <div class="footer-url" id="footer-url"></div>
+    </div>
+  </div>
+</footer>
+
+<script>
+const API = 'https://genealogy-mapper-production.up.railway.app';
+let lastData = null;
+let currentView = 'table';
+let sortCol = null, sortDir = 1;
+
+document.getElementById('footer-url').textContent = API;
+
+// ── STATUS CHECK ──
+async function checkStatus() {
+  try {
+    const r = await fetch(`${API}/health`);
+    const d = await r.json();
+    const dot = document.getElementById('status-dot');
+    const txt = document.getElementById('status-text');
+    if (d.status === 'ok') {
+      dot.className = 'status-dot ok';
+      txt.textContent = 'API online';
+    } else {
+      dot.className = 'status-dot ok';
+      txt.textContent = `API online — ${d.database === 'error' ? 'DB err' : d.redis === 'error' ? 'Redis err' : 'degraded'}`;
+    }
+  } catch {
+    document.getElementById('status-dot').className = 'status-dot err';
+    document.getElementById('status-text').textContent = 'API unreachable';
+  }
+}
+checkStatus();
+
+// ── TABS ──
+function switchTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`tab-${name}`).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+
+// ── ROUTE FIELD DEFINITIONS ──
+const ROUTES = {
+  search: {
+    fields: [{ id: 'q', label: 'Search Term', placeholder: 'alexander', required: true },
+             { id: 'type', label: 'Type (optional)', placeholder: 'person | dataset | region' }],
+    build: f => `${API}/search?q=${enc(f.q)}${f.type ? '&type='+enc(f.type) : ''}`,
+    extract: d => d.results || d
+  },
+  person: {
+    fields: [{ id: 'id', label: 'Person UUID', placeholder: 'paste a person_id here', required: true }],
+    build: f => `${API}/person/${f.id}`,
+    extract: d => [d]
+  },
+  'person-genome': {
+    fields: [{ id: 'id', label: 'Person UUID', placeholder: 'paste a person_id here', required: true }],
+    build: f => `${API}/person/${f.id}/genome`,
+    extract: d => d.genomes || [d]
+  },
+  'person-matches': {
+    fields: [
+      { id: 'id', label: 'Person UUID', required: true },
+      { id: 'min_score', label: 'Min Score (0–1)', placeholder: '0.5' },
+      { id: 'limit', label: 'Limit', placeholder: '20' }
+    ],
+    build: f => {
+      let u = `${API}/person/${f.id}/matches?`;
+      if (f.min_score) u += `min_score=${f.min_score}&`;
+      if (f.limit) u += `limit=${f.limit}`;
+      return u;
+    },
+    extract: d => d.matches || [d]
+  },
+  'person-ancestry': {
+    fields: [
+      { id: 'id', label: 'Person UUID', required: true },
+      { id: 'depth', label: 'Depth (generations)', placeholder: '10' }
+    ],
+    build: f => `${API}/person/${f.id}/ancestry${f.depth ? '?depth='+f.depth : ''}`,
+    extract: d => d.ancestry_chain || [d]
+  },
+  'person-lineage': {
+    fields: [{ id: 'id', label: 'Person UUID', required: true }],
+    build: f => `${API}/person/${f.id}/lineage`,
+    extract: d => d.memberships || [d]
+  },
+  match: {
+    fields: [{ id: 'id', label: 'Match UUID', required: true }],
+    build: f => `${API}/match/${f.id}`,
+    extract: d => [d]
+  },
+  relationship: {
+    fields: [{ id: 'id', label: 'Relationship UUID', required: true }],
+    build: f => `${API}/relationship/${f.id}`,
+    extract: d => [d]
+  },
+  haplogroup: {
+    fields: [{ id: 'code', label: 'Haplogroup Code', placeholder: 'R1b', required: true }],
+    build: f => `${API}/haplogroup/${f.code}/members`,
+    extract: d => d.members || [d]
+  },
+  cluster: {
+    fields: [{ id: 'id', label: 'Cluster UUID', required: true }],
+    build: f => `${API}/cluster/${f.id}`,
+    extract: d => d.members || [d]
+  },
+  historical: {
+    fields: [
+      { id: 'from_year', label: 'From Year (BCE = negative)', placeholder: '-500' },
+      { id: 'to_year', label: 'To Year', placeholder: '1900' },
+      { id: 'limit', label: 'Limit', placeholder: '25' },
+      { id: 'offset', label: 'Offset', placeholder: '0' }
+    ],
+    build: f => {
+      let p = [];
+      if (f.from_year) p.push(`from_year=${f.from_year}`);
+      if (f.to_year) p.push(`to_year=${f.to_year}`);
+      if (f.limit) p.push(`limit=${f.limit}`);
+      if (f.offset) p.push(`offset=${f.offset}`);
+      return `${API}/historical${p.length ? '?'+p.join('&') : ''}`;
+    },
+    extract: d => d.results || [d]
+  },
+  timeline: {
+    fields: [
+      { id: 'person_id', label: 'Person UUID', required: true },
+      { id: 'from', label: 'From Year', placeholder: '-500' },
+      { id: 'to', label: 'To Year', placeholder: '2000' }
+    ],
+    build: f => {
+      let p = [`person_id=${f.person_id}`];
+      if (f.from) p.push(`from=${f.from}`);
+      if (f.to) p.push(`to=${f.to}`);
+      return `${API}/timeline?${p.join('&')}`;
+    },
+    extract: d => d.events || [d]
+  },
+  health: {
+    fields: [],
+    build: () => `${API}/health`,
+    extract: d => [d]
+  }
+};
+
+function enc(v) { return encodeURIComponent(v); }
+
+function renderFields() {
+  const key = document.getElementById('route-select').value;
+  const container = document.getElementById('dynamic-fields');
+  const btn = document.getElementById('run-structured');
+
+  if (!key) { container.innerHTML = ''; btn.disabled = true; return; }
+
+  btn.disabled = false;
+  const def = ROUTES[key];
+
+  if (!def.fields.length) {
+    container.innerHTML = '<div style="color:var(--text-muted);font-family:var(--mono);font-size:12px;margin-bottom:16px">No parameters needed for this route.</div>';
+    return;
+  }
+
+  // Group into rows of 2 for multi-field routes
+  let html = '';
+  const fields = def.fields;
+  let i = 0;
+  while (i < fields.length) {
+    if (fields.length > 2 && i + 1 < fields.length && fields[i].id !== 'id' && fields[i].id !== 'person_id' && fields[i].id !== 'code') {
+      html += '<div class="field-row">';
+      html += renderField(fields[i]);
+      if (i+1 < fields.length) html += renderField(fields[i+1]);
+      html += '</div>';
+      i += 2;
+    } else {
+      html += `<div class="field">${renderField(fields[i])}</div>`;
+      i++;
+    }
+  }
+  container.innerHTML = html;
+}
+
+function renderField(f) {
+  return `<div>
+    <label>${f.label}${f.required ? ' <span style="color:var(--gold);font-size:10px">*</span>' : ''}</label>
+    <input type="text" id="field-${f.id}" placeholder="${f.placeholder || ''}" />
+  </div>`;
+}
+
+function getFieldValues(key) {
+  const def = ROUTES[key];
+  const out = {};
+  def.fields.forEach(f => {
+    const el = document.getElementById(`field-${f.id}`);
+    out[f.id] = el ? el.value.trim() : '';
+  });
+  return out;
+}
+
+async function runStructured() {
+  const key = document.getElementById('route-select').value;
+  if (!key) return;
+
+  const def = ROUTES[key];
+  const fields = getFieldValues(key);
+
+  // Validate required
+  for (const f of def.fields) {
+    if (f.required && !fields[f.id]) {
+      showError(`Field "${f.label}" is required.`);
+      return;
+    }
+  }
+
+  const url = def.build(fields);
+  setLoading('structured');
+  try {
+    const r = await fetch(url);
+    const d = await r.json();
+    if (!r.ok) { showError(d.detail || JSON.stringify(d)); return; }
+    const rows = def.extract(d);
+    lastData = d;
+    renderResults(Array.isArray(rows) ? rows : [rows]);
+  } catch(e) {
+    showError('Network error: ' + e.message);
+  } finally {
+    resetBtn('structured');
+  }
+}
+
+// ── NL QUERY ──
+function fillNL(el) {
+  document.getElementById('nl-input').value = el.textContent.trim();
+}
+
+async function runNL() {
+  const query = document.getElementById('nl-input').value.trim();
+  const apiKey = document.getElementById('nl-apikey').value.trim() || 'demo-key';
+  if (!query) return;
+
+  setLoading('nl');
+  document.getElementById('sql-display').style.display = 'none';
+  document.getElementById('cache-badge').innerHTML = '';
+
+  try {
+    const r = await fetch(`${API}/query/nl`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, api_key: apiKey })
+    });
+    const d = await r.json();
+
+    if (!r.ok || d.error) {
+      showError(d.error || d.detail || JSON.stringify(d));
+      return;
+    }
+
+    // Show SQL
+    if (d.generated_sql) {
+      const sqlEl = document.getElementById('sql-display');
+      sqlEl.textContent = d.generated_sql;
+      sqlEl.style.display = 'block';
+    }
+
+    // Show cache badge
+    if (d.cached !== undefined) {
+      const badge = document.getElementById('cache-badge');
+      badge.innerHTML = `<span class="cache-badge ${d.cached ? 'hit' : 'miss'}">${d.cached ? '⚡ Cache HIT' : '↓ Cache MISS — stored'}</span>`;
+    }
+
+    lastData = d;
+    const rows = d.results || [];
+    renderResults(rows);
+  } catch(e) {
+    showError('Network error: ' + e.message);
+  } finally {
+    resetBtn('nl');
+  }
+}
+
+// ── RESULTS RENDERING ──
+function renderResults(rows) {
+  clearError();
+  document.getElementById('results-count').textContent = `— ${rows.length} row${rows.length !== 1 ? 's' : ''}`;
+
+  // JSON view
+  document.getElementById('json-view').textContent = JSON.stringify(lastData, null, 2);
+
+  if (!rows.length) {
+    document.getElementById('table-view').innerHTML = '<div class="state-box">No rows returned</div>';
+    return;
+  }
+
+  // Build table
+  const cols = Object.keys(rows[0]);
+  sortCol = null;
+
+  let html = `<table><thead><tr>${cols.map((c,i) => `<th onclick="sortTable(${i},'${c}')">${c}</th>`).join('')}</tr></thead><tbody>`;
+  rows.forEach(row => {
+    html += '<tr>' + cols.map(c => {
+      const v = row[c];
+      if (v === null || v === undefined) return `<td class="null-val">null</td>`;
+      if (typeof v === 'boolean') return `<td class="${v ? 'bool-true' : 'bool-false'}">${v}</td>`;
+      if (typeof v === 'number') return `<td class="num-val">${v}</td>`;
+      if (typeof v === 'object') return `<td title="${JSON.stringify(v).replace(/"/g,"'")}">{ object }</td>`;
+      const str = String(v);
+      const display = str.length > 60 ? str.slice(0,60)+'…' : str;
+      return `<td title="${str.replace(/"/g,'&quot;')}">${escHtml(display)}</td>`;
+    }).join('') + '</tr>';
+  });
+  html += '</tbody></table>';
+
+  document.getElementById('table-view').innerHTML = html;
+  applyView();
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function sortTable(colIdx, colName) {
+  if (sortCol === colName) sortDir *= -1;
+  else { sortCol = colName; sortDir = 1; }
+
+  const tbody = document.querySelector('#table-view table tbody');
+  if (!tbody) return;
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+  rows.sort((a, b) => {
+    const av = a.cells[colIdx]?.textContent || '';
+    const bv = b.cells[colIdx]?.textContent || '';
+    const an = parseFloat(av), bn = parseFloat(bv);
+    if (!isNaN(an) && !isNaN(bn)) return (an - bn) * sortDir;
+    return av.localeCompare(bv) * sortDir;
+  });
+  rows.forEach(r => tbody.appendChild(r));
+}
+
+function setView(v) {
+  currentView = v;
+  applyView();
+  document.getElementById('view-table-btn').classList.toggle('active', v === 'table');
+  document.getElementById('view-json-btn').classList.toggle('active', v === 'json');
+}
+
+function applyView() {
+  document.getElementById('table-view').style.display = currentView === 'table' ? 'block' : 'none';
+  document.getElementById('json-view').style.display = currentView === 'json' ? 'block' : 'none';
+}
+
+function copyJSON() {
+  if (!lastData) return;
+  navigator.clipboard.writeText(JSON.stringify(lastData, null, 2));
+}
+
+function clearResults() {
+  lastData = null;
+  document.getElementById('table-view').innerHTML = '<div class="state-box">Run a query to see results</div>';
+  document.getElementById('json-view').textContent = '';
+  document.getElementById('results-count').textContent = '';
+  document.getElementById('sql-display').style.display = 'none';
+  document.getElementById('cache-badge').innerHTML = '';
+  clearError();
+}
+
+function showError(msg) {
+  const el = document.getElementById('error-view');
+  el.textContent = 'Error: ' + msg;
+  el.style.display = 'block';
+  document.getElementById('table-view').innerHTML = '';
+  document.getElementById('results-count').textContent = '';
+}
+
+function clearError() {
+  const el = document.getElementById('error-view');
+  el.style.display = 'none';
+  el.textContent = '';
+}
+
+function setLoading(mode) {
+  clearError();
+  document.getElementById('table-view').innerHTML = '<div class="state-box"><span class="spinner"></span>Querying...</div>';
+  document.getElementById('results-count').textContent = '';
+  if (mode === 'structured') {
+    const btn = document.getElementById('run-structured');
+    btn.disabled = true;
+    document.getElementById('structured-btn-text').textContent = 'Running...';
+  } else {
+    document.getElementById('nl-btn-text').textContent = 'Running...';
+  }
+}
+
+function resetBtn(mode) {
+  if (mode === 'structured') {
+    document.getElementById('run-structured').disabled = false;
+    document.getElementById('structured-btn-text').textContent = 'Run Query';
+  } else {
+    document.getElementById('nl-btn-text').textContent = 'Run NL Query';
+  }
+}
+</script>
+</body>
+</html>
