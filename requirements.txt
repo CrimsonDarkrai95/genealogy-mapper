@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+asyncpg
+redis
+httpx
+sqlparse
+pydantic
+python-dotenv
+pandas
+google-genai
