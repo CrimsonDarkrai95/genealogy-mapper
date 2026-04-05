@@ -1,4 +1,5 @@
 import os
+import ssl
 import redis.asyncio as redis
 from dotenv import load_dotenv
 
@@ -10,27 +11,27 @@ _pool: redis.Redis | None = None
 
 
 async def init_redis() -> redis.Redis:
-    """
-    Initialise Redis connection (called at app startup)
-    """
     global _pool
 
     if _pool is None:
         if REDIS_URL is None:
             raise RuntimeError("REDIS_URL is not set in .env")
 
-        _pool = redis.from_url(
-    REDIS_URL,
-    encoding="utf-8",
-    decode_responses=True,
-    max_connections=10,
-    socket_connect_timeout=5,
-    socket_timeout=5,
-    retry_on_timeout=True,
-    ssl_cert_reqs=None,
-)
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
 
-        # Test connection
+        _pool = redis.from_url(
+            REDIS_URL,
+            encoding="utf-8",
+            decode_responses=True,
+            max_connections=10,
+            socket_connect_timeout=5,
+            socket_timeout=5,
+            retry_on_timeout=True,
+            ssl_context=ssl_context,
+        )
+
         await _pool.ping()
 
     return _pool
