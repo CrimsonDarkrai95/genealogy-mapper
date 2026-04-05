@@ -62,7 +62,7 @@ async def health():
         db_status = "error"
 
     try:
-        r = get_redis()
+        r = await get_redis()
         await r.ping()
     except Exception:
         redis_status = "error"
