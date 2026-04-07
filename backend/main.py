@@ -12,6 +12,7 @@ from backend.routers import historical
 from backend.routers import search
 from backend.routers import timeline
 from backend.routers import nl_query
+import asyncio
 
 
 @asynccontextmanager
@@ -36,8 +37,12 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=[
+        "https://crimsondarkrai95.github.io",
+        "http://localhost:5173",
+        "http://localhost:3000",
+    ],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -70,7 +75,9 @@ async def health():
 
     try:
         r = await get_redis()
-        await r.ping()
+        result = r.ping()
+        if asyncio.iscoroutine(result):
+            await result
     except Exception:
         redis_status = "error"
 

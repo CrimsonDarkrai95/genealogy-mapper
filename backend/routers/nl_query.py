@@ -20,7 +20,7 @@ async def nl_query(body: NLQueryRequest, request: Request):
         )
 
     # 2. Run NL pipeline
-    pipeline_result = await run_nl_pipeline(body.query)
+    pipeline_result = await run_nl_pipeline(body.query, body.api_key)
 
     if not pipeline_result["valid"]:
         raise HTTPException(
