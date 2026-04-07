@@ -48,20 +48,16 @@ async def run_nl_pipeline(nl_query: str, api_key: str) -> dict:
             response = _get_client().chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0,        # deterministic SQL generation
+                temperature=0,
                 max_tokens=1024,
             )
             raw_sql = (response.choices[0].message.content or "").strip()
             if not raw_sql:
-                raise HTTPException(
-                    status_code=422,
-                    detail="Groq returned an empty response."
-                    )
+                raise HTTPException(status_code=422, detail="Groq returned an empty response.")
+        except HTTPException:
+            raise
         except Exception as e:
-            raise HTTPException(
-                status_code=502,
-                detail=f"Groq API error: {str(e)}"
-            )
+            raise HTTPException(status_code=502, detail=f"Groq API error: {str(e)}")
 
         # 4. Validate the generated SQL
         try:
