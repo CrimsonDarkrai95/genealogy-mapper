@@ -1,7 +1,7 @@
 import hashlib
 import os
 from dotenv import load_dotenv
-from google import genai
+from groq import Groq
 from fastapi import HTTPException
 
 load_dotenv()
@@ -14,10 +14,10 @@ from backend.nl.validator import validate_sql, ValidationError
 
 _client = None
 
-def _get_client():
+def _get_client() -> Groq:
     global _client
     if _client is None:
-        _client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+        _client = Groq(api_key=os.getenv("GROQ_API_KEY"))
     return _client
 
 
@@ -41,27 +41,26 @@ async def run_nl_pipeline(nl_query: str, api_key: str) -> dict:
     cached_sql = await get_nl2sql_cache(query_hash)
     cache_hit = cached_sql is not None
 
-    if cache_hit:
-        sql = cached_sql
-    else:
-        # 3. Build prompt and call Gemini Flash
+    if not cache_hit:
+        # 3. Build prompt and call Groq
         prompt = build_prompt(nl_query)
         try:
-            response = _get_client().models.generate_content(
-                model="gemini-2.0-flash",
-                contents=prompt
-                )
-            raw_sql = response.text.strip()
-        except ValueError:
-            # Safety filter or empty response from Gemini
-            raise HTTPException(
-                status_code=422,
-                detail="Gemini returned no usable SQL. The query may have triggered a safety filter."
+            response = _get_client().chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0,        # deterministic SQL generation
+                max_tokens=1024,
             )
+            raw_sql = (response.choices[0].message.content or "").strip()
+            if not raw_sql:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Groq returned an empty response."
+                    )
         except Exception as e:
             raise HTTPException(
                 status_code=502,
-                detail=f"Gemini API error: {str(e)}"
+                detail=f"Groq API error: {str(e)}"
             )
 
         # 4. Validate the generated SQL
@@ -72,6 +71,8 @@ async def run_nl_pipeline(nl_query: str, api_key: str) -> dict:
 
         # 5. Cache the validated SQL
         await set_nl2sql_cache(query_hash, sql)
+    else:
+        sql = cached_sql
 
     # 6. Execute against PostgreSQL
     pool = get_pool()
